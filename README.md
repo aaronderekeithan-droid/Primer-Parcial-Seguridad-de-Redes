@@ -103,7 +103,7 @@ flowchart TB
 <details>
 <summary>Diagrama en imagen</summary>
 
-
+<details>
 
 ### 3.1 Equipos
 
