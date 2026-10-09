@@ -2,7 +2,7 @@
 
 **Estudiante:** <Nombre Apellido> &nbsp;|&nbsp; **Matrícula:** 2025-0800 &nbsp;|&nbsp; **Institución:** Instituto Tecnológico de Las Américas (ITLA)
 
-> 🎥 **Video de demostración:** <https://youtu.be/XXXXXXXXXXX>
+> 🎥 **Video de demostración:** [<https://youtu.be/XXXXXXXXXXX>](https://youtu.be/2fjnMXQRM4s)
 
 ---
 
