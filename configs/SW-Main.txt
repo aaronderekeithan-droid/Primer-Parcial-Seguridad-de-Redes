@@ -1,0 +1,70 @@
+! =============================================================
+!  Equipo     : SW-Main
+!  Plataforma : Cisco IOL L2 - IOS 15.2
+!  Función    : Switch de acceso, trunk 802.1Q y gestión por SSH
+!  Matrícula  : 2025-0800
+! =============================================================
+!
+hostname SW-Main
+!
+! --- VLANs ---
+vlan 10
+ name USUARIOS
+vlan 20
+ name ADMINISTRATIVOS
+vlan 30
+ name SERVIDORES
+vlan 99
+ name GESTION
+!
+! --- Trunk 802.1Q hacia FG-Principal (port3) ---
+interface Ethernet0/0
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,99
+ no shutdown
+!
+! --- Puertos de acceso ---
+! PC-Usuario-10
+interface Ethernet0/1
+ switchport mode access
+ switchport access vlan 10
+ no shutdown
+!
+! PC-Admin-20
+interface Ethernet0/2
+ switchport mode access
+ switchport access vlan 20
+ no shutdown
+!
+! Web-Server
+interface Ethernet0/3
+ switchport mode access
+ switchport access vlan 30
+ no shutdown
+!
+! DB-Server
+interface Ethernet1/0
+ switchport mode access
+ switchport access vlan 30
+ no shutdown
+!
+! --- Interfaz de gestión (VLAN administrativa) ---
+interface Vlan99
+ ip address 10.25.8.114 255.255.255.248
+ no shutdown
+!
+ip default-gateway 10.25.8.113
+ip route 0.0.0.0 0.0.0.0 10.25.8.113
+!
+! --- Acceso remoto solo por SSH v2 (Telnet deshabilitado) ---
+ip domain-name itla.local
+username admin privilege 15 secret <contraseña>
+crypto key generate rsa modulus 2048
+ip ssh version 2
+!
+line vty 0 4
+ login local
+ transport input ssh
+!
+end

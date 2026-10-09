@@ -1,0 +1,236 @@
+# =============================================================
+#  Equipo     : FG-Principal
+#  Plataforma : FortiGate-VM64-KVM - FortiOS 6.4.6
+#  Función    : Firewall perimetral, gateway inter-VLAN, DHCP,
+#               DNS, NAT, protección DoS y Web Filter
+#  Matrícula  : 2025-0800
+#
+#  Nota: la configuración se realizó mediante la GUI. Este archivo
+#  recoge, en formato CLI, las secciones configuradas para la práctica.
+# =============================================================
+
+# --- Sistema ---
+config system global
+    set hostname "FG-Principal"
+    set admin-https-redirect disable
+end
+
+# --- Interfaces ---
+config system interface
+    edit "port1"
+        # Gestión (GUI) - IP por DHCP desde Cloud0, sin ruta por defecto
+        set mode dhcp
+        set allowaccess ping https ssh http
+        set defaultgw disable
+        set dns-server-override disable
+    next
+    edit "port2"
+        # WAN hacia ISP
+        set ip 200.25.8.2 255.255.255.252
+        set allowaccess ping
+        set role wan
+    next
+    edit "port3"
+        # Trunk 802.1Q hacia SW-Main
+        set role lan
+    next
+    edit "VLAN10"
+        # Usuarios
+        set interface "port3"
+        set vlanid 10
+        set ip 10.25.8.1 255.255.255.192
+        set allowaccess ping
+        set role lan
+    next
+    edit "VLAN20"
+        # Usuarios administrativos
+        set interface "port3"
+        set vlanid 20
+        set ip 10.25.8.65 255.255.255.224
+        set allowaccess ping
+        set role lan
+    next
+    edit "VLAN30"
+        # Servidores
+        set interface "port3"
+        set vlanid 30
+        set ip 10.25.8.97 255.255.255.240
+        set allowaccess ping
+        set role lan
+    next
+    edit "VLAN99"
+        # Gestión del switch
+        set interface "port3"
+        set vlanid 99
+        set ip 10.25.8.113 255.255.255.248
+        set allowaccess ping
+        set role lan
+    next
+end
+
+# --- DNS del sistema ---
+config system dns
+    set primary 8.8.8.8
+    set secondary 8.8.4.4
+end
+
+# --- Servicio DNS para los servidores (VLAN 30) ---
+config system dns-server
+    edit "VLAN30"
+        set mode forward-only
+    next
+end
+
+# --- Servidor DHCP de la VLAN 10 ---
+config system dhcp server
+    edit 1
+        set interface "VLAN10"
+        set default-gateway 10.25.8.1
+        set netmask 255.255.255.192
+        set dns-service default
+        config ip-range
+            edit 1
+                set start-ip 10.25.8.10
+                set end-ip 10.25.8.60
+            next
+        end
+    next
+end
+
+# --- Ruta por defecto hacia el ISP ---
+config router static
+    edit 1
+        set gateway 200.25.8.1
+        set device "port2"
+    next
+end
+
+# --- Objetos de dirección ---
+config firewall address
+    edit "NET-VLAN10"
+        set subnet 10.25.8.0 255.255.255.192
+    next
+    edit "NET-SERVIDORES"
+        set subnet 10.25.8.96 255.255.255.240
+    next
+    edit "HOST-WEB"
+        set subnet 10.25.8.98 255.255.255.255
+    next
+    edit "HOST-SW-MGMT"
+        set subnet 10.25.8.114 255.255.255.255
+    next
+    edit "FQDN-UBUNTU-ARCHIVE"
+        set type fqdn
+        set fqdn "archive.ubuntu.com"
+    next
+    edit "FQDN-UBUNTU-SECURITY"
+        set type fqdn
+        set fqdn "security.ubuntu.com"
+    next
+end
+
+config firewall addrgrp
+    edit "GRP-UBUNTU-UPDATES"
+        set member "FQDN-UBUNTU-ARCHIVE" "FQDN-UBUNTU-SECURITY"
+    next
+end
+
+# --- Web Filter: bloqueo de /inventario ---
+config webfilter urlfilter
+    edit 1
+        set name "WF-Inventario"
+        config entries
+            edit 1
+                set url "10.25.8.98/inventario*"
+                set type wildcard
+                set action block
+            next
+        end
+    next
+end
+
+config webfilter profile
+    edit "WF-Inventario"
+        set feature-set flow
+        config web
+            set urlfilter-table 1
+        end
+    next
+end
+
+# --- Políticas de firewall ---
+config firewall policy
+    edit 1
+        set name "VLAN10-Internet"
+        set srcintf "VLAN10"
+        set dstintf "port2"
+        set srcaddr "NET-VLAN10"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "ALL"
+        set logtraffic all
+        set nat enable
+    next
+    edit 2
+        set name "VLAN10-SSH-Switch"
+        set srcintf "VLAN10"
+        set dstintf "VLAN99"
+        set srcaddr "NET-VLAN10"
+        set dstaddr "HOST-SW-MGMT"
+        set action accept
+        set schedule "always"
+        set service "SSH" "TELNET"
+        set logtraffic all
+    next
+    edit 3
+        set name "Servidores-Updates"
+        set srcintf "VLAN30"
+        set dstintf "port2"
+        set srcaddr "NET-SERVIDORES"
+        set dstaddr "GRP-UBUNTU-UPDATES"
+        set action accept
+        set schedule "always"
+        set service "HTTP" "HTTPS"
+        set logtraffic all
+        set nat enable
+    next
+    edit 4
+        set name "VLAN10-WebServer"
+        set srcintf "VLAN10"
+        set dstintf "VLAN30"
+        set srcaddr "NET-VLAN10"
+        set dstaddr "HOST-WEB"
+        set action accept
+        set schedule "always"
+        set service "HTTP" "PING"
+        set utm-status enable
+        set ssl-ssh-profile "certificate-inspection"
+        set webfilter-profile "WF-Inventario"
+        set logtraffic all
+    next
+end
+
+# --- Registro del tráfico denegado por el Implicit Deny ---
+config log setting
+    set fwpolicy-implicit-log enable
+end
+
+# --- Protección DoS (SYN flood) en la VLAN 10 ---
+config firewall DoS-policy
+    edit 1
+        set name "DoS-VLAN10"
+        set interface "VLAN10"
+        set srcaddr "all"
+        set dstaddr "all"
+        set service "ALL"
+        config anomaly
+            edit "tcp_syn_flood"
+                set status enable
+                set log enable
+                set action block
+                set threshold 100
+            next
+        end
+    next
+end

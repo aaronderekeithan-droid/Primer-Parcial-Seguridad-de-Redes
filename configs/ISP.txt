@@ -1,0 +1,32 @@
+! =============================================================
+!  Equipo     : ISP
+!  Plataforma : Cisco IOL L3 - IOS 15.4
+!  Función    : Proveedor de Internet con NAT hacia la nube
+!  Matrícula  : 2025-0800
+! =============================================================
+!
+hostname ISP
+!
+! --- Salida a Internet (Cloud0) ---
+interface Ethernet0/0
+ ip address dhcp
+ ip nat outside
+ no shutdown
+!
+! --- Enlace WAN hacia FG-Principal (port2) ---
+interface Ethernet0/1
+ ip address 200.25.8.1 255.255.255.252
+ ip nat inside
+ no shutdown
+!
+! --- Enlace WAN hacia R-Sucursal (e0/0) ---
+interface Ethernet0/2
+ ip address 200.25.8.5 255.255.255.252
+ ip nat inside
+ no shutdown
+!
+! --- NAT overload de los enlaces WAN hacia Internet ---
+access-list 1 permit 200.25.8.0 0.0.0.7
+ip nat inside source list 1 interface Ethernet0/0 overload
+!
+end

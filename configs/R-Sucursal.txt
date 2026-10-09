@@ -1,0 +1,29 @@
+! =============================================================
+!  Equipo     : R-Sucursal
+!  Plataforma : Cisco IOL L3 - IOS 15.4
+!  Función    : Router de la sucursal
+!  Matrícula  : 2025-0800
+! =============================================================
+!
+hostname R-Sucursal
+!
+! --- Enlace WAN hacia ISP (e0/2) ---
+interface Ethernet0/0
+ ip address 200.25.8.6 255.255.255.252
+ ip nat outside
+ no shutdown
+!
+! --- LAN de la sucursal (PC-Sucursal) ---
+interface Ethernet0/1
+ ip address 10.25.9.1 255.255.255.0
+ ip nat inside
+ no shutdown
+!
+! --- Ruta por defecto hacia el ISP ---
+ip route 0.0.0.0 0.0.0.0 200.25.8.5
+!
+! --- NAT overload de la LAN de la sucursal ---
+access-list 1 permit 10.25.9.0 0.0.0.255
+ip nat inside source list 1 interface Ethernet0/0 overload
+!
+end
