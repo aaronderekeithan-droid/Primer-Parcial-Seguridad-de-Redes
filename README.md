@@ -100,10 +100,6 @@ flowchart TB
     style SRV fill:#F1F8F2,stroke:#A5D6A7,stroke-width:1.5px
 ```
 
-<details>
-<summary>Diagrama en imagen</summary>
-
-<details>
 
 ### 3.1 Equipos
 
